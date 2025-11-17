@@ -39,153 +39,50 @@
 
         /* 小卡 A4 預覽 (直式 2x5) */
         .preview-small {
-            /* 修正: 使用 fr (相對單位) 取代 cm */
             grid-template-columns: repeat(2, 1fr);
             grid-template-rows: repeat(5, 1fr);
             aspect-ratio: 210 / 297; /* 直式 */
-            width: 70vh; /* 直式比例 */
-            max-width: 90%;
+            /* 修正: 移除 vh, 改用 max-width 控制 */
+            width: 100%; 
+            max-width: 500px; /* 限制最大寬度, 避免在大螢幕上過大 */
         }
 
         /* 中卡 A4 預覽 (橫式 2x3) */
         .preview-medium {
-            /* 修正: 使用 fr (相對單位) 取代 cm */
             grid-template-columns: repeat(2, 1fr);
             grid-template-rows: repeat(3, 1fr);
             aspect-ratio: 297 / 210; /* 橫式 */
-            width: 90vh; /* 橫式比例 */
-            max-width: 90%;
+            /* 修正: 移除 vh, 改用 max-width 控制 */
+            width: 100%;
+            max-width: 700px;
         }
 
         /* 大卡 A4 預覽 (直式 1x4) */
         .preview-large {
-            /* 修正: 使用 fr (相對單位) 取代 cm */
             grid-template-columns: repeat(1, 1fr);
             grid-template-rows: repeat(4, 1fr);
             aspect-ratio: 210 / 297; /* 直式 */
-            width: 70vh; /* 直式比例 */
-            max-width: 90%;
-        }
-
-
-        /* --- 牌卡基本樣式 --- */
-        .price-card {
+            /* 修正: 移除 vh, 改用 max-width 控制 */
             width: 100%;
-            height: 100%;
-            border: 1px dashed #eee; 
-            
-            /* 背景圖設定 */
-            background-image: url('background.jpg'); 
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            
-            color: #000; /* 黑色 */
-            text-shadow: 1px 1px 3px rgba(255,255,255,0.7);
-            
-            page-break-inside: avoid;
-            box-sizing: border-box; 
-            overflow: hidden; 
-            
-            /* 刪除按鈕 (X) */
-            position: relative;
-        }
-
-        .delete-btn {
-            position: absolute;
-            top: 2px;
-            right: 4px;
-            width: 20px;
-            height: 20px;
-            background-color: rgba(239, 68, 68, 0.8); /* 紅色 */
-            color: white;
-            border: none;
-            border-radius: 50%;
-            font-size: 12px;
-            font-weight: bold;
-            line-height: 18px; /* 垂直置中 'x' */
-            text-align: center;
-            cursor: pointer;
-            padding: 0;
-            z-index: 10;
+            max-width: 500px;
         }
 
 
-        /* --- 小卡 & 中卡 格式 (靠左) --- */
-        .card-format-small,
-        .card-format-medium {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start; /* 至頂對齊 */
-            padding: 5%;
-        }
-        
-        /* 縮短行距 */
-        .card-format-small p,
-        .card-format-medium p {
-             margin-bottom: 0.25em; /* 縮短一半行距 */
-        }
-        
-        .card-format-small .card-price-number,
-        .card-format-small .card-group-number,
-        .card-format-medium .card-price-number,
-        .card-format-medium .card-group-number {
-            color: #CC3300; /* 紅色 */
-        }
-
-        /* 字體大小: 小卡 (11pt / 9pt) */
-        .card-size-small .card-main-line { font-size: 11pt; }
-        .card-size-small .card-remark-line { font-size: 9pt; }
-        
-        /* 字體大小: 中卡 (26pt / 26pt) */
-        .card-size-medium .card-main-line { font-size: 26pt; }
-        .card-size-medium .card-remark-line { font-size: 26pt; }
-
-
-        /* --- 大卡 格式 (置中) --- */
-        .card-format-large {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between; /* 上下分散 */
-            padding: 8%;
-        }
-        .card-format-large .card-name-line {
-            text-align: center; /* 品名置中 */
-            font-size: 34pt;
-            font-weight: 900;
-        }
-        .card-format-large .card-remark-line {
-            text-align: right; /* 備註靠右 */
-            font-size: 12pt;
-            font-weight: 700;
-            color: #D9534F; /* 紅色 */
-            margin-top: -1em; /* 縮短行距 */
-        }
-        .card-format-large .card-price-line {
-            text-align: center; /* 價格置中 */
-            font-size: 38pt;
-            font-weight: 900;
-        }
-        .card-format-large .card-price-number,
-        .card-format-large .card-group-number {
-            color: #CC3300; /* 紅色 */
-        }
-
-
-        /* --- 螢幕預覽: 字體等比縮放 (修正) --- */
+        /* --- 螢幕預覽: 字體等比縮放 --- */
+        /* 為了校稿, 讓字體隨螢幕縮放. 列印時會強制覆蓋回 pt. */
         @media (min-width: 768px) {
-            /* 小卡 (A4 is 70vh wide, 2 columns. Card is ~35vh wide) */
-            .card-size-small .card-main-line { font-size: calc(1.2vh + 4pt); }
-            .card-size-small .card-remark-line { font-size: calc(1.0vh + 3pt); }
+            /* 小卡 (11pt / 9pt) */
+            .card-size-small .card-main-line { font-size: calc(0.5vw + 8pt); }
+            .card-size-small .card-remark-line { font-size: calc(0.4vw + 6pt); }
             
-            /* 中卡 (A4 is 90vh wide, 2 columns. Card is ~45vh wide) */
-            .card-size-medium .card-main-line { font-size: calc(2.0vh + 8pt); }
-            .card-size-medium .card-remark-line { font-size: calc(2.0vh + 8pt); }
+            /* 中卡 (26pt / 26pt) */
+            .card-size-medium .card-main-line { font-size: calc(1.0vw + 16pt); }
+            .card-size-medium .card-remark-line { font-size: calc(1.0vw + 16pt); }
 
-            /* 大卡 (A4 is 70vh wide, 1 column. Card is ~70vh wide) */
-            .card-format-large .card-name-line { font-size: calc(3.0vh + 10pt); }
+            /* 大卡 (34pt / 12pt / 38pt) */
+            .card-format-large .card-name-line { font-size: calc(1.5vw + 19pt); }
             .card-format-large .card-remark-line { font-size: 12pt; } /* 備註固定12pt */
-            .card-format-large .card-price-line { font-size: calc(3.5vh + 12pt); }
+            .card-format-large .card-price-line { font-size: calc(2.0vw + 20pt); }
         }
 
 
