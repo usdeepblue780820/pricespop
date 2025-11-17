@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>價格牌卡產生器</title>
     
-    <!-- 載入 Tailwind CSS -->
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 載入 Google Fonts (思源黑體) -->
+    <!-- 引入 Google Fonts (Inter & Noto Sans TC) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -19,12 +19,6 @@
             font-family: 'Noto Sans TC', 'Inter', sans-serif;
         }
 
-        /* --- 列印專用紙張設定 --- */
-        @page {
-            /* 移除瀏覽器預設邊界 */
-            margin: 0; 
-        }
-
         /* --- A4 預覽頁面 (螢幕顯示) --- */
         .a4-page {
             background: white;
@@ -33,51 +27,158 @@
             border: 1px solid #ccc;
             overflow: hidden;
             display: grid;
-            box-sizing: border-box;
-            width: 100%; /* 讓 .preview-* 的 max-width 生效 */
+            /* 修正：使用 justify-content 置中 */
+            justify-content: center; 
+            align-content: start;
+            gap: 0; /* 移除格子間距 */
+            box-sizing: border-box; /* 確保 padding 不會影響寬高 */
         }
 
         /* 小卡 A4 預覽 (直式 2x5) */
         .preview-small {
+            /* 修正：使用 fr 確保完整顯示 */
             grid-template-columns: repeat(2, 1fr);
             grid-template-rows: repeat(5, 1fr);
-            aspect-ratio: 210 / 297; /* 直式 */
-            /* 修正: 移除 vh, 改用 max-width 控制 */
-            width: 100%; 
-            max-width: 500px; /* 限制最大寬度, 避免在大螢幕上過大 */
+            aspect-ratio: 210 / 297; /* A4 直式比例 */
+            width: 70vh; 
+            max-width: 90%;
+            /* 修正：使用 padding 模擬邊界 */
+            padding: 1.7cm 5cm;
         }
 
         /* 中卡 A4 預覽 (橫式 2x3) */
         .preview-medium {
+            /* 修正：使用 fr 確保完整顯示 */
             grid-template-columns: repeat(2, 1fr);
             grid-template-rows: repeat(3, 1fr);
-            aspect-ratio: 297 / 210; /* 橫式 */
-            /* 修正: 移除 vh, 改用 max-width 控制 */
-            width: 100%;
-            max-width: 700px;
+            aspect-ratio: 297 / 210; /* A4 橫式比例 */
+            width: 90vh; 
+            max-width: 90%;
+            /* 修正：使用 padding 模擬邊界 */
+            padding: 1.75cm 2.35cm;
         }
 
         /* 大卡 A4 預覽 (直式 1x4) */
         .preview-large {
+            /* 修正：使用 fr 確保完整顯示 */
             grid-template-columns: repeat(1, 1fr);
             grid-template-rows: repeat(4, 1fr);
-            aspect-ratio: 210 / 297; /* 直式 */
-            /* 修正: 移除 vh, 改用 max-width 控制 */
-            width: 100%;
-            max-width: 500px;
+            aspect-ratio: 210 / 297; /* A4 直式比例 */
+            width: 60vh;
+            max-width: 90%;
+            /* 修正：使用 padding 模擬邊界 */
+            padding: 1.85cm 1.5cm;
         }
 
 
-        /* --- 螢幕預覽: 字體等比縮放 --- */
-        /* 為了校稿, 讓字體隨螢幕縮放. 列印時會強制覆蓋回 pt. */
+        /* --- 牌卡基礎樣式 --- */
+        .price-card {
+            width: 100%;
+            height: 100%;
+            border: 1px dashed #eee; 
+            background-image: url('background.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            padding: 5%;
+            color: #000;
+            page-break-inside: avoid;
+            box-sizing: border-box; 
+            overflow: hidden;
+            position: relative; /* 為了刪除按鈕定位 */
+        }
+
+        /* 單獨刪除按鈕 */
+        .delete-card-btn {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: #CC3300;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            line-height: 18px;
+            text-align: center;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .price-card:hover .delete-card-btn {
+            opacity: 1;
+        }
+        
+        /* 牌卡內的紅色字體 */
+        .text-custom-red {
+            color: #CC3300;
+        }
+        
+        /* --- 小卡 & 中卡 格式 (靠左、至頂) --- */
+        .card-format-standard {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* 垂直至頂 */
+            align-items: flex-start; /* 水平靠左 */
+            font-weight: 900;
+            line-height: 1.2;
+        }
+        /* 備註 (縮短行距) */
+        .card-format-standard .card-remark-line {
+            font-weight: 500;
+            margin-top: 0.25em; /* 縮短行距 */
+        }
+
+        /* 小卡字體 (螢幕固定 pt) */
+        .card-size-small .card-main-line { font-size: 11pt; }
+        .card-size-small .card-remark-line { font-size: 9pt; }
+        
+        /* 中卡字體 (螢幕固定 pt) */
+        .card-size-medium .card-main-line { font-size: 26pt; }
+        .card-size-medium .card-remark-line { font-size: 26pt; }
+
+
+        /* --- 大卡 格式 (置中、價格在下) --- */
+        .card-format-large {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* 頂部和底部分散 */
+            height: 100%;
+            font-weight: 900;
+        }
+        .card-format-large .card-name-line {
+            width: 100%; /* 修正: 確保置中 */
+            text-align: center; /* 修正: 確保置中 */
+        }
+        .card-format-large .card-remark-line {
+            text-align: right; /* 靠右 */
+            font-weight: 500;
+            margin-top: 0.25em; /* 縮短行距 */
+        }
+        .card-format-large .card-price-line {
+            width: 100%; /* 修正: 確保置中 */
+            text-align: center; /* 修正: 確保置中 */
+            line-height: 1;
+        }
+        
+        /* 大卡字體 (螢幕固定 pt) */
+        .card-format-large .card-name-line { font-size: 34pt; }
+        .card-format-large .card-remark-line { font-size: 12pt; }
+        .card-format-large .card-price-line { font-size: 38pt; }
+
+
+        /* --- 螢幕預覽: 字體等比縮放 (校稿用) --- */
+        /* 在大於 768px 的螢幕上, 讓字體隨螢幕縮放. 列印時會強制覆蓋回 pt. */
         @media (min-width: 768px) {
             /* 小卡 (11pt / 9pt) */
-            .card-size-small .card-main-line { font-size: calc(0.5vw + 8pt); }
-            .card-size-small .card-remark-line { font-size: calc(0.4vw + 6pt); }
+            .card-size-small .card-main-line { font-size: calc(0.5vw + 7pt); }
+            .card-size-small .card-remark-line { font-size: calc(0.4vw + 5pt); }
             
-            /* 中卡 (26pt / 26pt) */
-            .card-size-medium .card-main-line { font-size: calc(1.0vw + 16pt); }
-            .card-size-medium .card-remark-line { font-size: calc(1.0vw + 16pt); }
+            /* 中卡 (26pt) - 修正: 調整縮放公式 */
+            .card-size-medium .card-main-line { font-size: calc(0.7vw + 18pt); }
+            .card-size-medium .card-remark-line { font-size: calc(0.7vw + 18pt); }
 
             /* 大卡 (34pt / 12pt / 38pt) */
             .card-format-large .card-name-line { font-size: calc(1.5vw + 19pt); }
@@ -86,19 +187,27 @@
         }
 
 
-        /* --- 列印專用樣式 (維持不變, 使用 cm 和 pt) --- */
+        /* --- 列印專用樣式 (強制使用 cm 和 pt) --- */
         @media print {
+            /* 修正：移除瀏覽器預設邊界 */
+            @page {
+                margin: 0;
+            }
+
+            /* 強制列印背景圖和顏色 */
             body {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
             
+            /* 隱藏表單和按鈕 */
             .no-print {
-                display: none; /* 隱藏表單和按鈕 */
+                display: none;
             }
             
-            .delete-btn {
-                display: none; /* 隱藏刪除按鈕 */
+            /* 隱藏刪除按鈕 */
+            .delete-card-btn {
+                display: none;
             }
 
             #card-container {
@@ -114,51 +223,54 @@
                 box-shadow: none;
                 aspect-ratio: auto;
                 page-break-after: always;
-                justify-content: center;
-                align-content: center;
-                width: 100% !important; /* 覆蓋螢幕樣式 */
-                max-width: none !important; /* 覆蓋螢幕樣式 */
+                box-sizing: border-box; /* 確保 padding 計算正確 */
+                justify-content: center; /* 置中格線 */
+                align-content: start;
             }
 
-            /* 小卡 (8.5cm W x 5.5cm H) - A4直印 2x5 */
+            /* 小卡 (直式 A4, 2x5) */
             .preview-small {
                 width: 21cm !important;
                 height: 29.7cm !important;
-                grid-template-columns: repeat(2, 8.5cm); /* 8.5 * 2 = 17cm */
-                grid-template-rows: repeat(5, 5.5cm); /* 5.5 * 5 = 27.5cm */
-                box-sizing: border-box;
+                grid-template-columns: repeat(2, 5.5cm);
+                grid-template-rows: repeat(5, 8.5cm);
+                padding: 1.7cm 5cm; 
             }
 
-            /* 中卡 (12.5cm W x 5.5cm H) - A4橫印 2x3 */
+            /* 中卡 (橫式 A4, 2x3) - 修正尺寸 */
             .preview-medium {
-                width: 29.7cm !important; /* 橫式 */
-                height: 21cm !important; /* 橫式 */
-                grid-template-columns: repeat(2, 12.5cm); /* 12.5 * 2 = 25cm */
-                grid-template-rows: repeat(3, 5.5cm); /* 5.5 * 3 = 16.5cm */
-                box-sizing: border-box;
+                width: 29.7cm !important;
+                height: 21cm !important;
+                grid-template-columns: repeat(2, 12.5cm);
+                grid-template-rows: repeat(3, 5.5cm);
+                padding: 2.25cm 2.35cm;
             }
             
-            /* 大卡 (18cm W x 6.5cm H) - A4直印 1x4 */
+            /* 大卡 (直式 A4, 1x4) - 修正尺寸 */
             .preview-large {
-                width: 21cm !important; /* 直式 */
-                height: 29.7cm !important; /* 直式 */
-                grid-template-columns: repeat(1, 18cm); /* 18 * 1 = 18cm */
-                grid-template-rows: repeat(4, 6.5cm); /* 6.5 * 4 = 26cm */
-                box-sizing: border-box;
+                width: 21cm !important;
+                height: 29.7cm !important;
+                grid-template-columns: repeat(1, 18cm);
+                grid-template-rows: repeat(4, 6.5cm);
+                padding: 1.85cm 1.5cm;
             }
             
             .price-card {
-                border: 1px dashed #666; /* 裁剪線 */
+                border: 1px dashed #666; /* 加上虛線方便裁剪 */
                 box-sizing: border-box;
+                padding: 5%;
             }
 
-            /* --- 列印時: 強制使用 pt 字體大小 --- */
+            /* --- 列印字體 (強制覆蓋) --- */
+            /* 小卡字體 (強制 11pt / 9pt) */
             .card-size-small .card-main-line { font-size: 11pt !important; }
             .card-size-small .card-remark-line { font-size: 9pt !important; }
             
+            /* 中卡字體 (強制 26pt) */
             .card-size-medium .card-main-line { font-size: 26pt !important; }
             .card-size-medium .card-remark-line { font-size: 26pt !important; }
 
+            /* 大卡字體 (強制 34pt / 12pt / 38pt) */
             .card-format-large .card-name-line { font-size: 34pt !important; }
             .card-format-large .card-remark-line { font-size: 12pt !important; }
             .card-format-large .card-price-line { font-size: 38pt !important; }
@@ -169,12 +281,13 @@
 
     <div class="container mx-auto p-4 md:p-8">
 
-        <!-- 輸入表單 -->
+        <!-- 輸入表單 (列印時隱藏) -->
         <div class="no-print max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md mb-8">
             <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">價格牌卡產生器</h1>
             
             <div class="space-y-4">
                 
+                <!-- 尺寸選擇 -->
                 <div>
                     <label for="card-size" class="block text-sm font-medium text-gray-700">選擇尺寸</label>
                     <select id="card-size" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
@@ -184,28 +297,32 @@
                     </select>
                 </div>
                 
+                <!-- 品名 -->
                 <div>
                     <label for="product-name" class="block text-sm font-medium text-gray-700">品名 (必填)</label>
                     <input type="text" id="product-name" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="例如: 耐吉斯 熟齡犬 雞肉">
                 </div>
                 
+                <!-- 組數 (可選) -->
                 <div>
                     <label for="product-group" class="block text-sm font-medium text-gray-700">組數 (可選)</label>
                     <input type="text" id="product-group" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="例如: 2, 1.5, 3">
                 </div>
                 
+                <!-- 價格 -->
                 <div>
                     <label for="product-price" class="block text-sm font-medium text-gray-700">價格 (必填)</label>
                     <input type="number" id="product-price" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="例如: 899">
                 </div>
 
+                <!-- 備註 -->
                 <div>
                     <label for="product-remark" class="block text-sm font-medium text-gray-700">備註 (可選)</label>
                     <input type="text" id="product-remark" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="例如: 買一送一, 特價品">
                 </div>
             </div>
 
-            <!-- 操作按鈕 -->
+            <!-- 按鈕區域 -->
             <div class="mt-6 grid grid-cols-3 gap-4">
                 <button id="generate-btn" class="w-full col-span-3 bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150">
                     產生牌卡
@@ -222,9 +339,9 @@
             </div>
         </div>
 
-        <!-- 牌卡預覽區 -->
+        <!-- 牌卡預覽區域 -->
         <div id="card-container" class="flex flex-col items-center">
-            <!-- A4 頁面將由 JS 動態新增於此 -->
+            <!-- A4 頁面會由 JS 動態新增於此 -->
         </div>
 
     </div>
@@ -238,7 +355,6 @@
         const productGroupInput = document.getElementById('product-group');
         const productPriceInput = document.getElementById('product-price');
         const productRemarkInput = document.getElementById('product-remark');
-        
         const generateBtn = document.getElementById('generate-btn');
         const clearBtn = document.getElementById('clear-btn');
         const copyBtn = document.getElementById('copy-btn');
@@ -248,24 +364,32 @@
         // A4 頁面設定
         const pageSettings = {
             'card-size-small': {
-                limit: 10, // 2x5 (直印)
+                limit: 10, // 2x5
                 class: 'preview-small',
-                format: 'card-format-small'
+                format: 'standard'
             },
             'card-size-medium': {
                 limit: 6, // 2x3 (橫印)
                 class: 'preview-medium',
-                format: 'card-format-medium'
+                format: 'standard'
             },
             'card-size-large': {
                 limit: 4, // 1x4 (直印)
                 class: 'preview-large',
-                format: 'card-format-large'
+                format: 'large'
             }
         };
 
+        // 儲存上一筆資料
+        let lastInput = {
+            name: '',
+            group: '',
+            price: '',
+            remark: ''
+        };
+
+        // 目前選擇的模式
         let currentMode = cardSizeInput.value;
-        let lastInput = {}; // 用於儲存上一筆資料
 
         // 函數: 新增一個 A4 頁面
         function addNewPage(mode) {
@@ -289,69 +413,52 @@
             return lastPage;
         }
 
-        // 函數: 產生牌卡 HTML
-        function createCardHTML(settings, data) {
-            const format = settings.format;
-            const name = data.name;
-            const group = data.group;
-            const price = data.price;
-            const remark = data.remark;
-
-            let mainLine = '';
-            let remarkLine = remark ? `<p class="card-remark-line">${remark}</p>` : '';
-
-            // 格式化價格行
-            if (group) {
-                // 有組數: [品名] [組數]入 [價格]元
-                mainLine = `<p class="card-main-line">${name} <span class="card-group-number">${group}</span>入 <span class="card-price-number">${price}</span>元</p>`;
-            } else {
-                // 無組數: [品名] [價格]元
-                mainLine = `<p class="card-main-line">${name} <span class="card-price-number">${price}</span>元</p>`;
+        // 函數: 產生牌卡內容 (HTML)
+        function createCardHTML(mode, data) {
+            const settings = pageSettings[mode];
+            
+            // 處理備註
+            // 修正：確保備註行正確插入
+            let remarkHTML = '';
+            if (data.remark) {
+                remarkHTML = `<div class="card-remark-line">${data.remark}</div>`;
             }
 
-            // 大卡專屬格式
-            if (format === 'card-format-large') {
-                const groupText = group ? `<span class="card-group-number">${group}</span>入` : '';
-                
-                // 縮短行距: 將備註的 margin-top 移到這裡
-                if (remarkLine) {
-                    remarkLine = `<p class="card-remark-line" style="margin-top: -1em;">${remark}</p>`;
-                }
+            // 處理組數 (如果存在)
+            const groupText = data.group ? `<span class="text-custom-red">${data.group}</span>入 ` : '';
 
+            // 根據不同格式產生 HTML
+            if (settings.format === 'large') {
+                // --- 大卡格式 ---
                 return `
                     <div class="card-format-large">
                         <div>
-                            <p class="card-name-line">${name}</p>
-                            ${remarkLine}
+                            <div class="card-name-line">${data.name}</div>
+                            ${remarkHTML}
                         </div>
-                        <p class="card-price-line">特價 ${groupText} <span class="card-price-number">${price}</span>元</p>
+                        <div class="card-price-line">
+                            特價 ${groupText}<span class="text-custom-red">${data.price}</span>元
+                        </div>
+                    </div>
+                `;
+            } else {
+                // --- 小卡 & 中卡格式 ---
+                // 修正：確保備註行正確插入
+                const mainLine = `<div class="card-main-line">${data.name} ${groupText}<span class="text-custom-red">${data.price}</span>元</div>`;
+                return `
+                    <div class="card-format-standard">
+                        ${mainLine}
+                        ${remarkHTML}
                     </div>
                 `;
             }
-            
-            // 縮短行距: 將備註的 margin-bottom 移到這裡
-            if (remarkLine) {
-                 mainLine = mainLine.replace('</p>', ' style="margin-bottom: 0.25em;"></p>');
-            }
-
-            // 小卡 & 中卡 格式
-            return `
-                <div class="card-format-small">
-                    ${mainLine}
-                    ${remarkLine}
-                </div>
-            `;
         }
 
         // 點擊 "產生牌卡" 按鈕
         generateBtn.addEventListener('click', () => {
+            // 檢查模式是否切換
             const selectedSize = cardSizeInput.value;
             if (selectedSize !== currentMode) {
-                if (cardContainer.innerHTML.trim() !== '' && !cardContainer.querySelector('.a4-page:empty')) {
-                     alert("如需切換版面尺寸，請先按 '全部清除'。");
-                     cardSizeInput.value = currentMode;
-                     return;
-                }
                 currentMode = selectedSize;
                 cardContainer.innerHTML = ''; 
             }
@@ -362,8 +469,9 @@
             const price = productPriceInput.value.trim();
             const remark = productRemarkInput.value.trim();
 
-            // 驗證 (組數改為可選)
+            // 驗證 (品名和價格為必填)
             if (!name || !price) {
+                console.error('品名和價格為必填項');
                 if (!name) productNameInput.classList.add('border-red-500');
                 if (!price) productPriceInput.classList.add('border-red-500');
                 return;
@@ -371,46 +479,55 @@
             
             productNameInput.classList.remove('border-red-500');
             productPriceInput.classList.remove('border-red-500');
-
-            // 儲存上一筆資料
-            lastInput = { name, group, price, remark };
             
-            const settings = pageSettings[currentMode];
+            // 儲存這筆資料 (用於複製)
+            lastInput = { name, group, price, remark };
+
+            // 獲取一個可用的 A4 頁面
             const page = getAvailablePage();
 
             // 創建新的牌卡元素
             const card = document.createElement('div');
-            card.className = `price-card ${currentMode}`; // 加入尺寸 class
+            card.className = 'price-card ' + currentMode;
             card.style.backgroundImage = "url('background.jpg')";
 
             // 產生牌卡內容
-            card.innerHTML = createCardHTML(settings, lastInput);
+            const cardData = { name, group, price, remark };
+            card.innerHTML = createCardHTML(currentMode, cardData);
             
             // 新增刪除按鈕
             const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-btn no-print';
+            deleteBtn.className = 'delete-card-btn no-print';
             deleteBtn.innerHTML = '&times;';
-            deleteBtn.title = '刪除此牌卡';
             deleteBtn.onclick = () => {
-                card.remove();
+                // 使用淡出效果刪除
+                card.style.transition = 'opacity 0.3s ease';
+                card.style.opacity = '0';
+                setTimeout(() => {
+                    card.remove();
+                    // 檢查頁面是否為空, 如果是, 且不是最後一頁, 則刪除頁面
+                    if (page.children.length === 0 && cardContainer.children.length > 1) {
+                        page.remove();
+                    }
+                }, 300);
             };
             card.appendChild(deleteBtn);
 
+            // 將新牌卡加入到 A4 頁面中
             page.appendChild(card);
 
-            // 清空輸入框
+            // 清空輸入框 (方便下次輸入)
             productNameInput.value = '';
             productGroupInput.value = '';
             productPriceInput.value = '';
             productRemarkInput.value = '';
-            productNameInput.focus();
+            productNameInput.focus(); // 讓焦點回到品名
         });
 
         // 切換尺寸選單時
         cardSizeInput.addEventListener('change', () => {
             const selectedSize = cardSizeInput.value;
-            // 只有當容器為空時才切換
-            if (cardContainer.innerHTML.trim() === '' || cardContainer.querySelector('.a4-page:empty')) {
+            if (cardContainer.innerHTML.trim() === '' || selectedSize !== currentMode) {
                 currentMode = selectedSize;
                 cardContainer.innerHTML = '';
                 addNewPage(currentMode);
@@ -424,28 +541,23 @@
         clearBtn.addEventListener('click', () => {
             cardContainer.innerHTML = ''; 
             addNewPage(currentMode); 
-            lastInput = {}; // 清空上一筆紀錄
         });
 
         // 點擊 "複製上一筆" 按鈕
         copyBtn.addEventListener('click', () => {
-            if (lastInput.name) {
-                productNameInput.value = lastInput.name;
-                productGroupInput.value = lastInput.group;
-                productPriceInput.value = lastInput.price;
-                productRemarkInput.value = lastInput.remark;
-                productNameInput.focus();
-            } else {
-                alert("尚未有上一筆資料可供複製。");
-            }
+            productNameInput.value = lastInput.name;
+            productGroupInput.value = lastInput.group;
+            productPriceInput.value = lastInput.price;
+            productRemarkInput.value = lastInput.remark;
+            productNameInput.focus();
         });
 
-        // 點擊 "列印" 按鈕
+        // D點擊 "列印" 按鈕
         printBtn.addEventListener('click', () => {
-            window.print(); 
+            window.print(); // 觸發瀏覽器列印功能
         });
 
-        // 按 Enter 觸發
+        // 讓輸入框按 Enter 也能觸發產生
         productRemarkInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 generateBtn.click();
