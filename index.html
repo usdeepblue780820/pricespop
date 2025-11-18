@@ -36,38 +36,41 @@
 
         /* 小卡 A4 預覽 (直式 2x5) */
         .preview-small {
-            /* 修正：使用 fr 確保完整顯示 */
             grid-template-columns: repeat(2, 1fr);
             grid-template-rows: repeat(5, 1fr);
             aspect-ratio: 210 / 297; /* A4 直式比例 */
             width: 70vh; 
             max-width: 90%;
-            /* 修正：使用 padding 模擬邊界 */
-            padding: 1.7cm 5cm;
+            /* 修正: 改用百分比 padding, 確保佈局等比縮放 */
+            /* padding: 1.7cm / 29.7cm = 5.7% */
+            /* padding: 5cm / 21cm = 23.8% */
+            padding: 5.7% 23.8%;
         }
 
         /* 中卡 A4 預覽 (橫式 2x3) */
         .preview-medium {
-            /* 修正：使用 fr 確保完整顯示 */
             grid-template-columns: repeat(2, 1fr);
             grid-template-rows: repeat(3, 1fr);
             aspect-ratio: 297 / 210; /* A4 橫式比例 */
             width: 90vh; 
             max-width: 90%;
-            /* 修正：使用 padding 模擬邊界 */
-            padding: 1.75cm 2.35cm;
+            /* 修正: 改用百分比 padding, 確保佈局等比縮放 */
+            /* padding: 2.25cm / 21cm = 10.7% */
+            /* padding: 2.35cm / 29.7cm = 7.9% */
+            padding: 10.7% 7.9%;
         }
 
         /* 大卡 A4 預覽 (直式 1x4) */
         .preview-large {
-            /* 修正：使用 fr 確保完整顯示 */
             grid-template-columns: repeat(1, 1fr);
             grid-template-rows: repeat(4, 1fr);
             aspect-ratio: 210 / 297; /* A4 直式比例 */
             width: 60vh;
             max-width: 90%;
-            /* 修正：使用 padding 模擬邊界 */
-            padding: 1.85cm 1.5cm;
+            /* 修正: 改用百分比 padding, 確保佈局等比縮放 */
+            /* padding: 1.85cm / 29.7cm = 6.2% */
+            /* padding: 1.5cm / 21cm = 7.14% */
+            padding: 6.2% 7.14%;
         }
 
 
@@ -417,19 +420,19 @@
         function createCardHTML(mode, data) {
             const settings = pageSettings[mode];
             
-            // 處理備註
-            // 修正：確保備註行正確插入
-            let remarkHTML = '';
-            if (data.remark) {
-                remarkHTML = `<div class="card-remark-line">${data.remark}</div>`;
-            }
-
             // 處理組數 (如果存在)
             const groupText = data.group ? `<span class="text-custom-red">${data.group}</span>入 ` : '';
 
             // 根據不同格式產生 HTML
             if (settings.format === 'large') {
                 // --- 大卡格式 ---
+                
+                // 修正：重寫備註邏輯
+                let remarkHTML = '';
+                if (data.remark && data.remark.trim() !== '') {
+                    remarkHTML = `<div class="card-remark-line">${data.remark}</div>`;
+                }
+
                 return `
                     <div class="card-format-large">
                         <div>
@@ -443,14 +446,21 @@
                 `;
             } else {
                 // --- 小卡 & 中卡格式 ---
-                // 修正：確保備註行正確插入
+                
+                // 修正：重寫備註邏輯，避免字串汙染
                 const mainLine = `<div class="card-main-line">${data.name} ${groupText}<span class="text-custom-red">${data.price}</span>元</div>`;
-                return `
+                
+                let finalHTML = `
                     <div class="card-format-standard">
                         ${mainLine}
-                        ${remarkHTML}
-                    </div>
                 `;
+                
+                if (data.remark && data.remark.trim() !== '') {
+                    finalHTML += `<div class="card-remark-line">${data.remark}</div>`;
+                }
+                
+                finalHTML += `</div>`;
+                return finalHTML;
             }
         }
 
