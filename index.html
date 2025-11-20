@@ -1,306 +1,935 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>價格牌卡產生器 — 自動換頁 + Excel 匯入 + 重排刪除</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<style>
-body { font-family:'Noto Sans TC', sans-serif; margin:0; padding:18px; background:#f3f4f6; }
-.controls { max-width:1100px; margin:18px auto; }
-.page-wrap { max-width:1100px; margin:18px auto; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐾 APPLE價格POP輸出系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- 新增 SheetJS 用於解析 Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
 
-/* A4 頁面（預設畫面預覽用） */
-.a4-page { background:white; margin:0 auto 18px; box-shadow:0 3px 8px rgba(0,0,0,0.1); width:210mm; padding:6mm 0; }
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+        }
 
-/* landscape preview for middle-card mode */
-.a4-page.landscape { width:297mm; }
+        /* 預設列印背景圖樣式 */
+        .pop-bg {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
 
-/* 卡片尺寸 */
-.card-s { width:85mm; height:55mm; }
-.card-m { width:125mm; height:55mm; }
-.card-l { width:180mm; height:65mm; }
+        /* 紙張模擬與預覽設定 */
+        .a4-sheet {
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin: 0 auto 20px auto; /* 螢幕上置中 */
+            position: relative;
+            overflow: hidden;
+            /* 保持列印時背景圖可見 */
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
 
-/* 每頁 Grid */
-.grid-s { display:grid; grid-template-columns:85mm 85mm; grid-template-rows:repeat(5,55mm); width:170mm; margin:0 auto; gap:0; }
-.grid-m { display:grid; grid-template-columns:125mm 125mm; grid-template-rows:repeat(3,55mm); width:250mm; margin:0 auto; gap:0; }
-.grid-l { display:grid; grid-template-columns:180mm; grid-template-rows:repeat(4,65mm); width:180mm; margin:0 auto; gap:0; }
+        /* A4 尺寸定義 */
+        .sheet-portrait {
+            width: 210mm;
+            height: 297mm;
+        }
+        .sheet-landscape {
+            width: 297mm;
+            height: 210mm;
+        }
 
-/* 卡片內容 */
-.price-card { position:relative; overflow:hidden; box-sizing:border-box; padding:6%; }
-.price-card img.bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
-.price-card .content { position:relative; z-index:2; font-weight:900; color:#111; }
-.title { font-size:11pt; color:#0b0b0b; }
-.group { font-size:10pt; color:#0b0b0b; margin-left:6px; font-weight:700; }
-.price { font-size:12pt; color:#cc2f00; margin-left:2px; font-weight:800; }
-.remark { font-size:8pt; margin-top:5px; font-weight:600; color:#111; }
+        /* 網格佈局容器 */
+        .grid-container {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            padding: 10mm; /* 預覽時保持較寬鬆的視覺 */
+            box-sizing: border-box;
+            justify-content: center;
+            align-content: start;
+            gap: 2mm; /* 預覽時卡片間距 */
+        }
 
-/* 第一行（品名 + 組數 + 價格）不要換行 */
-/* 我們用 .title-group 內部的 .group-price 把組數與價格緊貼在一起 */
-.title-group { display:flex; align-items:center; gap:8px; white-space:nowrap; overflow:hidden; justify-content:flex-start; }
-.title-group .title { display:inline-block; max-width:60%; text-overflow:ellipsis; overflow:hidden; }
-.group-price { display:inline-flex; align-items:center; gap:0; }
+        /* 卡片通用樣式 */
+        .card {
+            border: 1px dashed #ccc; /* 預覽時的裁切線 */
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden;
+            background-color: rgba(255,255,255,0.8); /* 微微透明白底 */
+        }
 
-/* 刪除按鈕 */
-.card-del { position:absolute; top:6px; right:6px; width:26px; height:26px; border-radius:50%; background:#e53e3e; color:#fff; border:none; font-weight:bold; z-index:3; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+        /* 單張卡片刪除按鈕 */
+        .delete-btn {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+        }
 
-/* 隱藏列印時的刪除按鈕 */
-@media print { .card-del { display:none !important; } }
+        /* 整頁刪除按鈕 */
+        .page-delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #dc2626;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 50;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        .page-delete-btn:hover {
+            transform: scale(1.1);
+            background: #b91c1c;
+        }
 
-/* 頁面控制 */
-.page-controls { display:flex; gap:8px; align-items:center; }
-.page-num { width:72px; padding:6px; border:1px solid #ddd; border-radius:6px; }
+        /* 強制文字基線對齊的輔助類別 */
+        .highlight {
+            color: #cc3300;
+            vertical-align: baseline;
+        }
 
-/* 列印樣式：列印時改為 A4 landscape（確保中卡列印為橫向） */
-@media print {
-  body { padding:0; background:white; }
-  .no-print { display:none !important; }
-  .a4-page { box-shadow:none; margin:0; padding:6mm 0; width:297mm !important; }
-  .a4-page.landscape { width:297mm !important; }
-  @page { size: A4 landscape; margin: 0; }
-}
-</style>
+        /* 特定尺寸樣式 */
+        /* 1. 小卡 */
+        .card-small {
+            width: 85mm;
+            height: 55mm;
+            padding: 4mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            line-height: 1.2;
+        }
+        .card-small .main-text {
+            font-size: 12pt; /* 品名、入、元 12pt */
+            font-weight: bold;
+            color: #000;
+            text-align: left;
+        }
+        .card-small .highlight {
+            color: #cc3300;
+            font-size: 18pt; /* 組數與價格 18pt */
+        }
+        .card-small .note {
+            font-size: 9pt;
+            font-weight: normal;
+            color: #000;
+            margin-top: 2px;
+            width: 100%;
+        }
+
+        /* 2. 中卡 */
+        .card-medium {
+            width: 125mm;
+            height: 55mm;
+            padding: 5mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            line-height: 1.3;
+        }
+        .card-medium .main-text {
+            font-size: 18pt; /* 品名 18pt */
+            font-weight: bold;
+            color: #000;
+            text-align: left;
+            vertical-align: baseline;
+        }
+        /* 中卡特別指定的價格與組數樣式 */
+        .card-medium .highlight {
+            font-size: 24pt; /* 價格與組數 24pt */
+            color: #cc3300;
+            vertical-align: baseline;
+        }
+        .card-medium .note {
+            font-size: 12pt; /* 備註 12pt */
+            font-weight: normal;
+            color: #000;
+            margin-top: 4px;
+            width: 100%;
+        }
+
+        /* 3. 大卡 */
+        .card-large {
+            width: 185mm;
+            height: 65mm;
+            padding: 2mm 5mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .card-large .line-name {
+            font-size: 42pt; /* 品名 42pt */
+            font-weight: bold;
+            color: #000;
+            text-align: center;
+            width: 100%;
+            white-space: nowrap; /* 堅持不換行 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .card-large .line-note {
+            font-size: 24pt; /* 備註 24pt */
+            color: #000;
+            text-align: right;
+            width: 100%;
+        }
+        .card-large .line-price {
+            font-size: 42pt; /* "特價" "入" "元" 42pt */
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+            color: #000;
+            
+            /* 關鍵修改：使用 Flexbox 強制基線對齊 */
+            display: flex;
+            justify-content: center;
+            align-items: baseline;
+        }
+        .card-large .highlight {
+            font-size: 54pt; /* 組數、價格數字 54pt */
+            color: #cc3300;
+        }
+
+
+        /* 頁碼標示 */
+        .page-number {
+            position: absolute;
+            bottom: 5mm;
+            right: 5mm;
+            font-size: 10pt;
+            color: #999;
+        }
+
+        /* 預覽縮放容器 */
+        #preview-area {
+            transform-origin: top center;
+            transition: transform 0.2s;
+        }
+
+        /* === 列印核心修正 === */
+        @media print {
+            /* 強制歸零頁面邊距 */
+            @page {
+                margin: 0;
+            }
+
+            /* 隱藏所有不該印的東西 */
+            body * {
+                visibility: hidden; 
+            }
+            .no-print, header, aside, .page-number, .page-delete-btn {
+                display: none !important;
+            }
+
+            /* 重置 Body 與 HTML */
+            html, body {
+                width: 100%;
+                height: auto; /* 重要：讓高度自動適應 */
+                overflow: visible !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+            }
+
+            /* 讓主內容區域可見且重置位置 */
+            main {
+                visibility: visible !important;
+                display: block !important;
+                position: static !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            #scroll-container {
+                visibility: visible !important;
+                display: block !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* 調整列印時的網格容器邊距 */
+            .grid-container {
+                /* 基本設定：左右邊距 10mm，底部 0，間距 0.3mm */
+                padding-bottom: 0 !important;
+                padding-left: 10mm !important;
+                padding-right: 10mm !important;
+                gap: 0.3mm !important;
+                height: auto !important;
+            }
+
+            /* 針對不同尺寸設定不同的上方邊距 */
+            .grid-small {
+                padding-top: 1mm !important;
+            }
+            
+            .grid-medium, 
+            .grid-large {
+                padding-top: 5mm !important;
+            }
+
+            /* 預覽區重置 */
+            #preview-area, #preview-area * {
+                visibility: visible !important;
+            }
+            #preview-area {
+                position: static !important;
+                transform: none !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                left: 0 !important;
+                top: 0 !important;
+            }
+
+            /* A4 紙張樣式重置 */
+            .a4-sheet {
+                margin: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                position: relative !important;
+                left: 0 !important;
+                top: 0 !important;
+                height: auto !important; 
+                min-height: 200mm;
+                page-break-after: always;
+            }
+            
+            .a4-sheet:last-of-type {
+                page-break-after: auto !important;
+                page-break-inside: avoid !important;
+                margin-bottom: 0 !important;
+            }
+
+            .card {
+                border: none !important; 
+            }
+            .delete-btn {
+                display: none !important;
+            }
+        }
+    </style>
 </head>
-<body>
+<body class="h-screen flex flex-col overflow-hidden">
 
-<!-- 操作區 -->
-<div class="controls no-print">
-  <!-- 程式名稱與貓腳印 -->
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-    <!-- 貓腳印 SVG -->
-    <div aria-hidden="true" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border-radius:8px;">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4.5 9a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" fill="#5EC8F8"/>
-        <path d="M9 6.5a1.8 1.8 0 1 1 0-3.6A1.8 1.8 0 0 1 9 6.5z" fill="#5EC8F8"/>
-        <path d="M15 6.5a1.8 1.8 0 1 1 0-3.6A1.8 1.8 0 0 1 15 6.5z" fill="#5EC8F8"/>
-        <path d="M19.5 9a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" fill="#5EC8F8"/>
-        <path d="M12 19c-4 0-6-3-6-6 0-3 2-5 6-5s6 2 6 5c0 3-2 6-6 6z" fill="#5EC8F8"/>
-      </svg>
+    <!-- Header -->
+    <header class="bg-white shadow-md p-4 z-10 flex items-center justify-between no-print">
+        <div class="flex items-center gap-3">
+            <!-- 修改這裡：改用圖片 -->
+            <img src="icon256.ico" alt="Logo" class="h-10 w-10 object-contain">
+            <h1 class="text-2xl font-bold text-gray-800">APPLE價格POP輸出系統</h1>
+        </div>
+        <div class="text-sm text-gray-500">
+            僅限湖口中山店好朋友使用
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- 左側控制面板 -->
+        <aside class="w-96 bg-white border-r border-gray-200 flex flex-col p-4 overflow-y-auto no-print shadow-xl z-20">
+            
+            <!-- 尺寸選擇 -->
+            <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <h3 class="font-bold text-gray-700 mb-3">1. 選擇尺寸</h3>
+                <div class="space-y-2">
+                    <label class="flex items-center p-2 bg-white rounded border cursor-pointer hover:bg-blue-50">
+                        <input type="radio" name="size" value="small" class="mr-2 w-4 h-4 text-blue-600" checked onchange="changeSize()">
+                        <div>
+                            <div class="font-bold">小卡 (8.5x5.5cm)</div>
+                            <div class="text-xs text-gray-500">直式A4 | 10張/頁 (2x5)</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center p-2 bg-white rounded border cursor-pointer hover:bg-blue-50">
+                        <input type="radio" name="size" value="medium" class="mr-2 w-4 h-4 text-blue-600" onchange="changeSize()">
+                        <div>
+                            <div class="font-bold">中卡 (12.5x5.5cm)</div>
+                            <div class="text-xs text-gray-500">橫式A4 | 6張/頁 (2x3)</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center p-2 bg-white rounded border cursor-pointer hover:bg-blue-50">
+                        <input type="radio" name="size" value="large" class="mr-2 w-4 h-4 text-blue-600" onchange="changeSize()">
+                        <div>
+                            <div class="font-bold">大卡 (18.5x6.5cm)</div>
+                            <div class="text-xs text-gray-500">直式A4 | 4張/頁 (1x4)</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 資料輸入 -->
+            <div class="mb-6">
+                <h3 class="font-bold text-gray-700 mb-3">2. 輸入資料</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold mb-1">品名</label>
+                        <input type="text" id="input-name" class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例如：貓罐頭">
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="w-1/3">
+                            <label class="block text-xs font-bold mb-1">組數 (選填)</label>
+                            <input type="text" id="input-qty" class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="3">
+                        </div>
+                        <div class="w-2/3">
+                            <label class="block text-xs font-bold mb-1">價格</label>
+                            <input type="text" id="input-price" class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="100">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1">備註</label>
+                        <input type="text" id="input-note" class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="售完為止">
+                    </div>
+                </div>
+                
+                <div class="flex gap-2 mt-4">
+                    <button onclick="addCard()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                        <i class="fas fa-plus mr-1"></i> 產生
+                    </button>
+                    <button onclick="copyLast()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition">
+                        <i class="fas fa-copy mr-1"></i> 複製前筆
+                    </button>
+                </div>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="mb-6 border-t pt-4">
+                <h3 class="font-bold text-gray-700 mb-3">3. 功能操作</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="openBatchModal()" class="bg-gray-600 hover:bg-gray-700 text-white text-sm py-2 px-3 rounded">
+                        <i class="fas fa-file-import mr-1"></i> 批量匯入
+                    </button>
+                    <button onclick="clearAll()" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded">
+                        <i class="fas fa-trash-alt mr-1"></i> 全部清除
+                    </button>
+                </div>
+                
+                <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <label class="block text-xs font-bold mb-2">背景圖片設定</label>
+                    <div class="flex items-center gap-2">
+                        <input type="file" id="bg-upload" accept="image/*" onchange="updateBackground(this)" class="text-xs w-full">
+                        <button onclick="clearBackground()" class="bg-gray-400 hover:bg-gray-500 text-white text-xs py-1 px-2 rounded whitespace-nowrap transition">
+                            清除
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">預設讀取同一資料夾 background.jpg</p>
+                </div>
+
+                <!-- 自訂字型設定 -->
+                <div class="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
+                    <label class="block text-xs font-bold mb-2">自訂字型設定</label>
+                    <div class="flex items-center gap-2">
+                        <input type="file" id="font-upload" accept=".ttf,.otf,.woff,.woff2" onchange="updateFont(this)" class="text-xs w-full">
+                        <button onclick="clearFont()" class="bg-gray-400 hover:bg-gray-500 text-white text-xs py-1 px-2 rounded whitespace-nowrap transition">
+                            清除
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">支援 .ttf, .otf, .woff (僅套用至新牌卡)</p>
+                </div>
+            </div>
+
+            <!-- 列印區 -->
+            <div class="mt-auto bg-gray-800 text-white p-4 rounded-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <span>目前頁數: <span id="page-count">0</span></span>
+                    <span>總卡片: <span id="card-count">0</span></span>
+                </div>
+                <button onclick="printPop()" class="w-full bg-white text-gray-900 hover:bg-gray-200 font-bold py-3 px-4 rounded-lg shadow-lg transition flex items-center justify-center text-lg">
+                    <i class="fas fa-print mr-2"></i> 列印 POP
+                </button>
+            </div>
+        </aside>
+
+        <!-- 右側預覽區 -->
+        <main class="flex-1 flex flex-col h-full bg-gray-500 relative">
+            <!-- 預覽控制條 -->
+            <div class="bg-gray-700 text-white p-2 flex justify-between items-center shadow z-10 no-print">
+                <div class="flex items-center gap-4">
+                    <span class="font-bold">預覽模式</span>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs">縮放:</label>
+                        <input type="range" min="0.3" max="1.5" step="0.1" value="0.6" oninput="updateZoom(this.value)" class="w-32">
+                        <span id="zoom-val" class="text-xs w-8">60%</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-xs">跳至頁面:</label>
+                    <input type="number" id="jump-page" min="1" value="1" class="w-16 text-black px-1 rounded text-center">
+                    <button onclick="jumpToPage()" class="bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-xs">Go</button>
+                </div>
+            </div>
+
+            <!-- 滾動區域 -->
+            <div class="flex-1 overflow-auto p-8 flex justify-center items-start" id="scroll-container">
+                <div id="preview-area" class="flex flex-col gap-8" style="transform: scale(0.6);">
+                    <!-- 這裡會動態生成 A4 紙張 -->
+                </div>
+            </div>
+        </main>
     </div>
-    <div style="font-size:20px;font-weight:800;color:#111;">價格POP輸出程式</div>
-  </div>
 
-  <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
-    <select id="mode" class="px-3 py-2 border rounded">
-      <option value="s">小卡 85×55 mm（A4 直排 2×5）</option>
-      <option value="m">中卡 125×55 mm（A4 橫排 2×3）</option>
-      <option value="l">大卡 180×65 mm（A4 直排 1×4）</option>
-    </select>
-    <button id="add" class="px-4 py-2 bg-blue-600 text-white rounded">產生牌卡</button>
-    <button id="copyPrev" class="px-4 py-2 bg-gray-600 text-white rounded">複製上一筆</button>
-    <button id="clear" class="px-4 py-2 bg-yellow-500 text-white rounded">全部清除</button>
-    <button id="print" class="px-6 py-2 bg-red-600 text-white rounded">列印</button>
-  </div>
+    <!-- 批量匯入 Modal -->
+    <div id="batch-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 no-print">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-1/2 h-3/4 flex flex-col">
+            <h2 class="text-xl font-bold mb-2">批量匯入</h2>
+            
+            <!-- 頁籤切換 (簡易版) -->
+            <div class="flex gap-4 mb-4 border-b">
+                <div class="pb-2 border-b-2 border-blue-500 font-bold cursor-pointer text-blue-600">文字輸入</div>
+                <div class="pb-2 text-gray-500 text-sm self-end ml-auto">支援 Excel (.xls, .xlsx)</div>
+            </div>
 
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-    <input id="name" class="flex-1 px-3 py-2 border rounded" placeholder="品名" />
-    <input id="group" class="w-28 px-3 py-2 border rounded" placeholder="組數 (例如 12)" />
-    <input id="price" class="w-32 px-3 py-2 border rounded" placeholder="價格" />
-    <input id="remark" class="w-48 px-3 py-2 border rounded" placeholder="備註" />
-  </div>
+            <div class="mb-4">
+                 <label class="block text-sm font-bold mb-1 text-gray-700">方式一：直接貼上文字</label>
+                 <p class="text-xs text-gray-500 mb-2">格式：品名,組數,價格,備註 (逗號分隔)</p>
+                 <textarea id="batch-input" class="border p-3 font-mono text-sm w-full h-32 rounded mb-4 focus:ring-2 focus:ring-blue-500" placeholder="貓罐頭,3,100,售完為止&#10;狗飼料,,500,新品上市"></textarea>
+            </div>
 
-  <!-- Excel 匯入 & 頁面刪除 -->
-  <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-    <input type="file" id="excel" accept=".xlsx,.xls" />
-    <button id="import" class="px-4 py-2 bg-purple-600 text-white rounded">匯入 Excel</button>
+            <div class="mb-4 p-4 bg-green-50 rounded border border-green-100">
+                <label class="block text-sm font-bold mb-2 text-gray-700">方式二：上傳 Excel 檔案</label>
+                <input type="file" id="excel-file" accept=".xls,.xlsx" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200"/>
+                <p class="text-xs text-gray-500 mt-2">系統會自動抓取標題含有 [品名][組數][價格][備註] 的欄位</p>
+            </div>
 
-    <div class="page-controls">
-      <input id="deletePageNum" class="page-num" placeholder="頁碼 (1...)" />
-      <button id="deletePageBtn" class="px-3 py-2 bg-red-500 text-white rounded">刪除指定頁</button>
+            <div class="flex justify-end gap-2 mt-auto">
+                <button onclick="closeBatchModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">取消</button>
+                <button onclick="processBatch()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">匯入</button>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- 頁面容器 -->
-<div id="pages"></div>
+    <script>
+        // 資料狀態
+        let cards = [];
+        let currentSize = 'small';
+        // 目前選擇的設定 (作為新卡片的預設值)
+        let currentBackgroundImage = 'url("background.jpg")'; 
+        let currentFontFamily = '"Noto Sans TC", sans-serif'; // 預設字型
 
-<script>
-const pages = document.getElementById('pages');
-const modeSel = document.getElementById('mode');
-const nameI = document.getElementById('name');
-const groupI = document.getElementById('group');
-const priceI = document.getElementById('price');
-const remarkI = document.getElementById('remark');
-const excel = document.getElementById('excel');
-const deletePageNum = document.getElementById('deletePageNum');
-const BG = 'background.jpg';
+        const configs = {
+            small: {
+                name: '小卡',
+                width: 85, height: 55,
+                sheetClass: 'sheet-portrait',
+                rows: 5, cols: 2,
+                limit: 10
+            },
+            medium: {
+                name: '中卡',
+                width: 125, height: 55,
+                sheetClass: 'sheet-landscape',
+                rows: 3, cols: 2,
+                limit: 6
+            },
+            large: {
+                name: '大卡',
+                width: 185, height: 65,
+                sheetClass: 'sheet-portrait',
+                rows: 4, cols: 1,
+                limit: 4
+            }
+        };
 
-// 各模式資訊
-const SIZE = {
-  s:{cls:'card-s', grid:'grid-s', perPage:10},
-  m:{cls:'card-m', grid:'grid-m', perPage:6},
-  l:{cls:'card-l', grid:'grid-l', perPage:4}
-};
+        window.onload = function() {
+            render();
+            updateZoom(0.6);
+        };
 
-// 儲存上一筆（用於複製上一筆）
-let lastInput = {name:'', group:'', price:'', remark:''};
+        function changeSize() {
+            let selectedSize = '';
+            const radios = document.getElementsByName('size');
+            for (let r of radios) {
+                if (r.checked) {
+                    selectedSize = r.value;
+                    break;
+                }
+            }
+            if (selectedSize === currentSize) return;
 
-// 以模式分別儲存卡片資料（維持順序）
-const cardsByMode = { s:[], m:[], l:[] };
+            if (cards.length > 0) {
+                if (confirm('切換後會清除資料')) {
+                    cards = [];
+                    currentSize = selectedSize;
+                    render();
+                } else {
+                    for (let r of radios) {
+                        if (r.value === currentSize) {
+                            r.checked = true;
+                        }
+                    }
+                }
+            } else {
+                currentSize = selectedSize;
+                render();
+            }
+        }
 
-function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function addCard() {
+            const name = document.getElementById('input-name').value.trim();
+            const qty = document.getElementById('input-qty').value.trim();
+            const price = document.getElementById('input-price').value.trim();
+            const note = document.getElementById('input-note').value.trim();
 
-// 建立卡片 DOM（有刪除按鈕）
-// 將 price 放在 title-group（與 name+group 同列），且 group 與 price 緊貼
-function buildCardDOM(cardObj, mode, index){
-  const card = document.createElement('div'); card.className='price-card '+SIZE[mode].cls;
-  card.dataset.index = index;
-  const groupText = cardObj.group ? (escapeHtml(cardObj.group) + '入') : '';
-  const priceText = cardObj.price ? escapeHtml(cardObj.price) : '';
+            if (!name || !price) {
+                alert('請至少輸入品名與價格！');
+                return;
+            }
 
-  // 組成 title 行： title + group-price (group 和 price 緊接)
-  card.innerHTML = ''
-    + '<button class="card-del" title="刪除此牌卡">×</button>'
-    + '<img class="bg" src="' + BG + '" />'
-    + '<div class="content">'
-    + '  <div class="title-group">'
-    + '    <div class="title">' + escapeHtml(cardObj.name) + '</div>'
-    + (groupText ? ('<div class="group-price"><div class="group">' + groupText + '</div>' + (priceText?'<div class="price">' + priceText + ' 元</div>':'') + '</div>') : (priceText?'<div class="group-price"><div class="price">' + priceText + ' 元</div></div>':'' ))
-    + '  </div>'
-    + (cardObj.remark ? '<div class="remark" style="display:block;margin-top:6px;">' + escapeHtml(cardObj.remark) + '</div>' : '')
-    + '</div>';
-  const delBtn = card.querySelector('.card-del');
-  if (delBtn) delBtn.addEventListener('click', ()=>{ deleteCardAt(mode, index); });
-  return card;
-}
+            // 新增卡片時，寫入當時的背景與字型設定
+            cards.push({ 
+                name, qty, price, note, 
+                bg: currentBackgroundImage,
+                font: currentFontFamily
+            });
+            render();
+            document.getElementById('input-name').focus();
+        }
 
-// 重新繪製目前模式的頁面
-function renderPagesFor(mode){
-  pages.innerHTML = '';
-  const arr = cardsByMode[mode];
-  const per = SIZE[mode].perPage;
-  const pageCount = Math.max(1, Math.ceil(arr.length / per));
-  for(let p=0;p<pageCount;p++){
-    const page = document.createElement('div'); page.className='a4-page'; page.dataset.mode = mode; page.dataset.pageIndex = p;
-    if(mode === 'm') page.classList.add('landscape');
+        function copyLast() {
+            if (cards.length === 0) {
+                alert('目前沒有資料可複製');
+                return;
+            }
+            const last = cards[cards.length - 1];
+            // 複製內容，但套用"目前設定"的背景和字型
+            cards.push({ 
+                name: last.name,
+                qty: last.qty,
+                price: last.price,
+                note: last.note,
+                bg: currentBackgroundImage,
+                font: currentFontFamily
+            });
+            render();
+        }
 
-    // 頁首：頁碼
-    const header = document.createElement('div');
-    header.className = 'page-header';
-    header.style.textAlign = 'center';
-    header.style.fontSize = '10pt';
-    header.style.padding = '4px 0';
-    header.style.marginBottom = '4mm';
-    header.textContent = '第 ' + (p+1) + ' / ' + pageCount + ' 頁';
-    page.appendChild(header);
+        function deleteCard(index) {
+            cards.splice(index, 1);
+            render();
+        }
 
-    const grid = document.createElement('div'); grid.className = SIZE[mode].grid;
-    // 填充卡片
-    const start = p*per; const end = Math.min(start+per, arr.length);
-    for(let i=start;i<end;i++){
-      const cardDom = buildCardDOM(arr[i], mode, i);
-      grid.appendChild(cardDom);
-    }
-    page.appendChild(grid);
-    pages.appendChild(page);
-  }
-  if(arr.length===0){
-    const page = document.createElement('div'); page.className='a4-page'; page.dataset.mode = mode; page.dataset.pageIndex = 0; if(mode === 'm') page.classList.add('landscape');
-    const header = document.createElement('div'); header.className='page-header'; header.style.textAlign='center'; header.style.fontSize='10pt'; header.style.padding='4px 0'; header.style.marginBottom='4mm'; header.textContent = '第 1 / 1 頁';
-    const grid = document.createElement('div'); grid.className = SIZE[mode].grid;
-    page.appendChild(header); page.appendChild(grid); pages.appendChild(page);
-  }
-}
+        function deletePage(pageNumber) {
+            const config = configs[currentSize];
+            const limit = config.limit;
+            const startIndex = (pageNumber - 1) * limit;
+            cards.splice(startIndex, limit);
+            render();
+        }
 
-// 新增一張卡片（產生牌卡）
-function addCard(){
-  const m = modeSel.value;
-  const name = nameI.value.trim();
-  const group = groupI.value.trim();
-  const price = priceI.value.trim();
-  const remark = remarkI.value.trim();
-  if(!name || !price){ alert('請輸入品名與價格'); return; }
-  cardsByMode[m].push({name, group, price, remark});
-  lastInput = {name, group, price, remark};
-  // 清除欄位
-  nameI.value=''; groupI.value=''; priceI.value=''; remarkI.value=''; nameI.focus();
-  renderPagesFor(m);
-}
+        function clearAll() {
+            if (confirm('確定要清除所有卡片嗎？')) {
+                cards = [];
+                render();
+            }
+        }
 
-// 複製上一筆
-function copyPrev(){ if(!lastInput.name){ alert('沒有上一筆可複製'); return; } nameI.value = lastInput.name; groupI.value = lastInput.group; priceI.value = lastInput.price; remarkI.value = lastInput.remark; nameI.focus(); }
+        function render() {
+            const previewArea = document.getElementById('preview-area');
+            previewArea.innerHTML = '';
+            
+            const config = configs[currentSize];
+            const totalCards = cards.length;
+            
+            document.getElementById('card-count').innerText = totalCards;
+            const totalPages = Math.ceil(totalCards / config.limit) || 1;
+            document.getElementById('page-count').innerText = totalPages;
 
-// 匯入 Excel（將資料追加到目前模式）
-function importExcel(){
-  const file = excel.files[0]; if(!file){ alert('請選擇 Excel 檔案'); return; }
-  const reader = new FileReader();
-  reader.onload = (e)=>{
-    try{
-      const wb = XLSX.read(e.target.result, {type:'binary'});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, {header:1});
-      const m = modeSel.value;
-      // 支援兩種 Excel 排列：
-      // 1) [name, price, remark]
-      // 2) [name, group, price, remark]
-      data.forEach(row=>{ 
-        if(!row[0]) return; 
-        let obj = {name: String(row[0]), group:'', price:'', remark:''};
-        if(row.length>=4){ obj.group = String(row[1]||''); obj.price = String(row[2]||''); obj.remark = String(row[3]||''); }
-        else { obj.price = String(row[1]||''); obj.remark = String(row[2]||''); }
-        cardsByMode[m].push(obj);
-        lastInput = {name: obj.name, group: obj.group, price: obj.price, remark: obj.remark};
-      });
-      renderPagesFor(m);
-    }catch(err){ console.error(err); alert('讀取 Excel 發生錯誤'); }
-  };
-  reader.readAsBinaryString(file);
-}
+            let cardIndex = 0;
+            for (let i = 1; i <= totalPages; i++) {
+                const sheet = document.createElement('div');
+                sheet.className = `a4-sheet ${config.sheetClass}`;
+                sheet.id = `page-${i}`;
 
-// 清除所有頁面與資料
-function clearAll(){ cardsByMode.s = []; cardsByMode.m = []; cardsByMode.l = []; pages.innerHTML=''; renderPagesFor(modeSel.value); }
+                const pageDelBtn = document.createElement('div');
+                pageDelBtn.className = 'page-delete-btn no-print';
+                pageDelBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                pageDelBtn.title = '刪除整頁';
+                pageDelBtn.onclick = function() {
+                    if(confirm(`確定要刪除第 ${i} 頁的所有卡片嗎？\n(後面的卡片會自動遞補)`)) {
+                        deletePage(i);
+                    }
+                };
+                sheet.appendChild(pageDelBtn);
+                
+                const grid = document.createElement('div');
+                grid.className = `grid-container grid-${currentSize}`;
+                grid.style.gridTemplateColumns = `repeat(${config.cols}, ${config.width}mm)`;
+                grid.style.gridTemplateRows = `repeat(${config.rows}, ${config.height}mm)`;
 
-// 刪除指定頁面（1-based）並重排後續卡片
-function deletePage(){
-  const v = parseInt(deletePageNum.value,10);
-  if(isNaN(v) || v<1){ alert('請輸入有效頁碼（1 起）'); return; }
-  const m = modeSel.value;
-  const arr = cardsByMode[m];
-  const per = SIZE[m].perPage;
-  const idx = v-1;
-  const start = idx * per;
-  if(start >= arr.length && arr.length>0){ alert('頁碼超出範圍'); return; }
-  arr.splice(start, per);
-  renderPagesFor(m);
-  alert('已刪除第 '+v+' 頁，並已向前重排後續卡片');
-}
+                for (let j = 0; j < config.limit; j++) {
+                    if (cardIndex >= totalCards) break;
+                    
+                    const data = cards[cardIndex];
+                    const card = createCardElement(data, cardIndex, currentSize);
+                    grid.appendChild(card);
+                    
+                    cardIndex++;
+                }
 
-// 刪除單一牌卡（指定模式與該模式陣列索引）
-function deleteCardAt(mode, index){
-  const arr = cardsByMode[mode];
-  if(index<0 || index>=arr.length) return;
-  arr.splice(index,1);
-  renderPagesFor(mode);
-}
+                const pageNum = document.createElement('div');
+                pageNum.className = 'page-number';
+                pageNum.innerText = `第 ${i} 頁`;
+                
+                sheet.appendChild(grid);
+                sheet.appendChild(pageNum);
+                previewArea.appendChild(sheet);
+            }
+        }
 
-// 列印（使用 template literal 多行提示）
-function printAll(){
-  alert(`列印前請確認：
-1) 紙張 A4
-2) 邊距 無 / 最小
-3) 開啟背景圖形
-4) 縮放 100%`);
-  window.print();
-}
+        function createCardElement(data, index, size) {
+            const div = document.createElement('div');
+            div.className = `card card-${size} pop-bg`;
+            
+            // 套用該卡片獨立的背景與字型
+            div.style.backgroundImage = data.bg || 'url("background.jpg")';
+            div.style.fontFamily = data.font || '"Noto Sans TC", sans-serif';
 
-// 綁定事件
-document.getElementById('add').onclick = addCard;
-document.getElementById('copyPrev').onclick = copyPrev;
-document.getElementById('clear').onclick = clearAll;
-document.getElementById('print').onclick = printAll;
-document.getElementById('import').onclick = importExcel;
-document.getElementById('deletePageBtn').onclick = deletePage;
+            const delBtn = document.createElement('div');
+            delBtn.className = 'delete-btn';
+            delBtn.innerHTML = '<i class="fas fa-times"></i>';
+            delBtn.onclick = () => deleteCard(index);
+            div.appendChild(delBtn);
 
-// Enter 快捷鍵：品名/價格輸入後 Enter -> 產生牌卡
-[nameI, groupI, priceI, remarkI].forEach(el=>el.addEventListener('keydown', (e)=>{ if(e.key==='Enter') addCard(); }));
+            if (size === 'small' || size === 'medium') {
+                const mainText = document.createElement('div');
+                mainText.className = 'main-text';
+                let qtyHtml = data.qty ? `<span class="highlight qty-val">${data.qty}</span>入` : '';
+                let priceHtml = `<span class="highlight price-val">${data.price}</span>元`;
+                mainText.innerHTML = `${data.name} ${qtyHtml}${priceHtml}`;
+                const noteDiv = document.createElement('div');
+                noteDiv.className = 'note';
+                noteDiv.innerText = data.note;
+                div.appendChild(mainText);
+                div.appendChild(noteDiv);
+            } else if (size === 'large') {
+                const lineName = document.createElement('div');
+                lineName.className = 'line-name';
+                lineName.innerText = data.name;
+                const lineNote = document.createElement('div');
+                lineNote.className = 'line-note';
+                lineNote.innerText = data.note;
+                const linePrice = document.createElement('div');
+                linePrice.className = 'line-price';
+                let qtyHtml = data.qty ? `<span class="highlight">${data.qty}</span>入` : '';
+                let priceHtml = `<span class="highlight">${data.price}</span>元`;
+                linePrice.innerHTML = `特價${qtyHtml}${priceHtml}`;
+                div.appendChild(lineName);
+                div.appendChild(lineNote);
+                div.appendChild(linePrice);
+            }
+            return div;
+        }
 
-// 切換模式時顯示該模式的頁面
-modeSel.addEventListener('change', ()=> renderPagesFor(modeSel.value));
+        function updateZoom(val) {
+            document.getElementById('preview-area').style.transform = `scale(${val})`;
+            document.getElementById('zoom-val').innerText = Math.round(val * 100) + '%';
+        }
 
-// 初始化：建立第一頁
-(function init(){ renderPagesFor(modeSel.value); })();
+        function jumpToPage() {
+            const page = document.getElementById('jump-page').value;
+            const target = document.getElementById(`page-${page}`);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                alert('找不到該頁面');
+            }
+        }
 
-</script>
+        function updateBackground(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentBackgroundImage = `url("${e.target.result}")`;
+                    // 這裡不呼叫 render()，所以舊卡片不會變
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function clearBackground() {
+            document.getElementById('bg-upload').value = '';
+            currentBackgroundImage = 'url("background.jpg")';
+            // 這裡不呼叫 render()
+        }
+
+        // 新增：更新自訂字型
+        function updateFont(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const fontData = e.target.result;
+                    // 為了支援多個字型共存，每次產生獨立的 FontFace 名稱
+                    const fontName = 'CustomFont_' + Date.now();
+                    const fontFace = new FontFace(fontName, fontData);
+                    
+                    fontFace.load().then(function(loadedFace) {
+                        document.fonts.add(loadedFace);
+                        // 設定當前字型，只會影響之後新增的牌卡
+                        currentFontFamily = `"${fontName}", "Noto Sans TC", sans-serif`;
+                        alert('字型已載入！之後新增的牌卡將使用此字型。');
+                    }).catch(function(error) {
+                        alert('字型載入失敗，請確認檔案格式正確。');
+                        console.error(error);
+                    });
+                }
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        // 新增：清除自訂字型
+        function clearFont() {
+            document.getElementById('font-upload').value = '';
+            currentFontFamily = '"Noto Sans TC", sans-serif';
+            alert('字型設定已清除，回復預設。');
+        }
+
+        function openBatchModal() {
+            document.getElementById('batch-modal').classList.remove('hidden');
+            document.getElementById('batch-modal').classList.add('flex');
+        }
+        function closeBatchModal() {
+            document.getElementById('batch-modal').classList.add('hidden');
+            document.getElementById('batch-modal').classList.remove('flex');
+            document.getElementById('excel-file').value = ''; 
+        }
+
+        function processBatch() {
+            const fileInput = document.getElementById('excel-file');
+            const textInput = document.getElementById('batch-input');
+            
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    let addedCount = 0;
+                    json.forEach(row => {
+                        let name = '', qty = '', price = '', note = '';
+                        for (const key in row) {
+                            const cleanKey = key.replace(/\s/g, '');
+                            if (cleanKey.includes('品名')) name = row[key];
+                            else if (cleanKey.includes('組數')) qty = row[key];
+                            else if (cleanKey.includes('價格')) price = row[key];
+                            else if (cleanKey.includes('備註')) note = row[key];
+                        }
+                        if (name) {
+                            cards.push({ 
+                                name: String(name).trim(), 
+                                qty: qty ? String(qty).trim() : '', 
+                                price: price ? String(price).trim() : '', 
+                                note: note ? String(note).trim() : '',
+                                bg: currentBackgroundImage,
+                                font: currentFontFamily
+                            });
+                            addedCount++;
+                        }
+                    });
+                    finishBatch(addedCount);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                const text = textInput.value;
+                const lines = text.split('\n');
+                let addedCount = 0;
+                lines.forEach(line => {
+                    if (!line.trim()) return;
+                    const parts = line.split(/[,，]/);
+                    if (parts.length >= 1) {
+                        const name = parts[0].trim();
+                        const qty = parts[1] ? parts[1].trim() : '';
+                        const price = parts[2] ? parts[2].trim() : '';
+                        const note = parts[3] ? parts[3].trim() : '';
+                        if (name && (price || parts.length > 2)) {
+                            cards.push({ 
+                                name, qty, price, note,
+                                bg: currentBackgroundImage,
+                                font: currentFontFamily
+                            });
+                            addedCount++;
+                        }
+                    }
+                });
+                finishBatch(addedCount);
+            }
+        }
+
+        function finishBatch(count) {
+            if (count > 0) {
+                render();
+                closeBatchModal();
+                document.getElementById('batch-input').value = '';
+                alert(`成功匯入 ${count} 筆資料`);
+            } else {
+                alert('格式錯誤或無資料');
+            }
+        }
+
+        function printPop() {
+            let printStyle = document.getElementById('print-style');
+            if (!printStyle) {
+                printStyle = document.createElement('style');
+                printStyle.id = 'print-style';
+                document.head.appendChild(printStyle);
+            }
+
+            if (currentSize === 'medium') {
+                printStyle.innerHTML = `
+                    @media print { 
+                        @page { size: landscape; margin: 0; } 
+                    }
+                `;
+                alert("請確認印表機設定為「橫向」以獲得最佳效果");
+            } else {
+                printStyle.innerHTML = `
+                    @media print { 
+                        @page { size: portrait; margin: 0; } 
+                    }
+                `;
+            }
+            window.print();
+        }
+
+        document.getElementById('input-note').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                addCard();
+            }
+        });
+    </script>
 </body>
 </html>
