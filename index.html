@@ -114,16 +114,17 @@
         }
 
         /* 特定尺寸樣式 */
-        /* 1. 小卡 */
+        /* 1. 小卡 - 排版調整：避開下方標籤 */
         .card-small {
             width: 85mm;
             height: 55mm;
-            padding: 4mm;
+            /* 上0mm, 右5mm, 下8mm, 左5mm */
+            padding: 0mm 5mm 8mm 5mm; 
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
             align-items: flex-start;
-            line-height: 1.2;
+            line-height: 1.1; /* 行距縮小 */
         }
         .card-small .main-text {
             font-size: 12pt; /* 品名、入、元 12pt */
@@ -143,36 +144,35 @@
             width: 100%;
         }
 
-        /* 2. 中卡 - 修改內距與行高，讓文字整體上移 */
+        /* 2. 中卡 */
         .card-medium {
             width: 125mm;
             height: 55mm;
-            /* 修改：上方內距改為 0mm，盡量往上靠 */
+            /* 上0mm, 右5mm, 下5mm, 左5mm (之前修改的) */
             padding: 0mm 5mm 5mm 5mm; 
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
             align-items: flex-start;
-            line-height: 1.1; /* 修改：縮小行高，讓內容更緊湊 */
+            line-height: 1.1; 
         }
         .card-medium .main-text {
-            font-size: 18pt; /* 品名 18pt */
+            font-size: 18pt; 
             font-weight: bold;
             color: #000;
             text-align: left;
             vertical-align: baseline;
         }
-        /* 中卡特別指定的價格與組數樣式 */
         .card-medium .highlight {
-            font-size: 24pt; /* 價格與組數 24pt */
+            font-size: 24pt; 
             color: #cc3300;
             vertical-align: baseline;
         }
         .card-medium .note {
-            font-size: 10pt; /* 備註 10pt */
+            font-size: 10pt; 
             font-weight: normal;
             color: #000;
-            margin-top: 0px; /* 間距 0 */
+            margin-top: 0px; 
             width: 100%;
         }
 
@@ -186,7 +186,7 @@
             justify-content: space-between;
         }
         .card-large .line-name {
-            font-size: 42pt; /* 品名 42pt */
+            font-size: 42pt; 
             font-weight: bold;
             color: #000;
             text-align: center;
@@ -196,25 +196,23 @@
             text-overflow: ellipsis;
         }
         .card-large .line-note {
-            font-size: 24pt; /* 備註 24pt */
+            font-size: 24pt; 
             color: #000;
             text-align: right;
             width: 100%;
         }
         .card-large .line-price {
-            font-size: 42pt; /* "特價" "入" "元" 42pt */
+            font-size: 42pt; 
             font-weight: bold;
             text-align: center;
             width: 100%;
             color: #000;
-            
-            /* 關鍵修改：使用 Flexbox 強制基線對齊 */
             display: flex;
             justify-content: center;
             align-items: baseline;
         }
         .card-large .highlight {
-            font-size: 54pt; /* 組數、價格數字 54pt */
+            font-size: 54pt; 
             color: #cc3300;
         }
 
@@ -519,6 +517,7 @@
                 <label class="block text-sm font-bold mb-2 text-gray-700">方式二：上傳 Excel 檔案</label>
                 <input type="file" id="excel-file" accept=".xls,.xlsx" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200"/>
                 <p class="text-xs text-gray-500 mt-2">系統會自動抓取標題含有 [品名][組數][價格][備註] 的欄位</p>
+                <p class="text-xs text-gray-500 mt-1">可選：若有 [印出] 欄位且數值為 1 才匯入 (數值為 0 或空白則跳過)</p>
             </div>
 
             <div class="flex justify-end gap-2 mt-auto">
@@ -835,32 +834,56 @@
                 reader.onload = function(e) {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, {type: 'array'});
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    const json = XLSX.utils.sheet_to_json(worksheet);
                     
                     let addedCount = 0;
-                    json.forEach(row => {
-                        let name = '', qty = '', price = '', note = '';
-                        for (const key in row) {
-                            const cleanKey = key.replace(/\s/g, '');
-                            if (cleanKey.includes('品名')) name = row[key];
-                            else if (cleanKey.includes('組數')) qty = row[key];
-                            else if (cleanKey.includes('價格')) price = row[key];
-                            else if (cleanKey.includes('備註')) note = row[key];
-                        }
-                        if (name) {
-                            cards.push({ 
-                                name: String(name).trim(), 
-                                qty: qty ? String(qty).trim() : '', 
-                                price: price ? String(price).trim() : '', 
-                                note: note ? String(note).trim() : '',
-                                bg: currentBackgroundImage,
-                                font: currentFontFamily
-                            });
-                            addedCount++;
-                        }
+
+                    // 遍歷所有工作表
+                    workbook.SheetNames.forEach(sheetName => {
+                        const worksheet = workbook.Sheets[sheetName];
+                        const json = XLSX.utils.sheet_to_json(worksheet);
+
+                        json.forEach(row => {
+                            let name = '', qty = '', price = '', note = '';
+                            let shouldPrint = false;
+                            let printColumnFound = false;
+
+                            // 智慧欄位比對
+                            for (const key in row) {
+                                const cleanKey = key.replace(/\s/g, ''); // 移除空白
+                                
+                                if (cleanKey.includes('印出')) {
+                                    printColumnFound = true;
+                                    if (row[key] == 1) { // 寬鬆比對 (1 or '1')
+                                        shouldPrint = true;
+                                    }
+                                }
+                                else if (cleanKey.includes('品名')) name = row[key];
+                                else if (cleanKey.includes('組數')) qty = row[key];
+                                else if (cleanKey.includes('價格')) price = row[key];
+                                else if (cleanKey.includes('備註')) note = row[key];
+                            }
+
+                            // 邏輯判斷：
+                            // 1. 如果有找到 [印出] 欄位，則必須 check shouldPrint == true
+                            // 2. 如果沒找到 [印出] 欄位，則預設匯入 (相容舊版/一般檔案)
+                            if (printColumnFound && !shouldPrint) {
+                                return; // 跳過此列
+                            }
+
+                            if (name) {
+                                cards.push({ 
+                                    name: String(name).trim(), 
+                                    qty: qty ? String(qty).trim() : '', 
+                                    price: price ? String(price).trim() : '', 
+                                    note: note ? String(note).trim() : '',
+                                    bg: currentBackgroundImage,
+                                    font: currentFontFamily
+                                });
+                                addedCount++;
+                            }
+                        });
                     });
+                    
                     finishBatch(addedCount);
                 };
                 reader.readAsArrayBuffer(file);
